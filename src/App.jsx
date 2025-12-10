@@ -1,346 +1,105 @@
 import React, { useState, useRef } from 'react';
 
 // ============================================
-// BETWEEN THE LINES v2
-// AI + Communication Insight
-// With Screenshot Support + Wiki Cards
+// BETWEEN THE LINES — Pastel Edition
+// Gentle, professional, user-friendly
 // ============================================
 
-// Wiki data inline (simplified for single-file)
-const WIKI = {
-  "criticism": { emoji: "⚡", title: "Criticism", tip: "Start with 'I feel...' not 'You are...'" },
-  "contempt": { emoji: "😤", title: "Contempt", tip: "Build daily appreciation habits" },
-  "defensiveness": { emoji: "🛡️", title: "Defensiveness", tip: "Accept even a small part" },
-  "stonewalling": { emoji: "🧱", title: "Stonewalling", tip: "Take a break WITH a return promise" },
-  "pursue-withdraw": { emoji: "🔄", title: "Pursue-Withdraw", tip: "Pursuer: soften. Withdrawer: return." },
-  "attachment-anxious": { emoji: "💭", title: "Anxious", tip: "They need consistent reassurance" },
-  "attachment-avoidant": { emoji: "🚪", title: "Avoidant", tip: "Give space without punishment" },
-  "attachment-secure": { emoji: "🌱", title: "Secure", tip: "The goal — can be learned!" },
-  "attachment-disorganized": { emoji: "🌀", title: "Disorganized", tip: "Patience + consistency" },
+// Pastel color palette
+const colors = {
+  bg: '#faf8f5',           // warm off-white
+  card: '#ffffff',
+  accent: '#9f8fef',       // soft lavender
+  accentLight: '#e8e4fb',
+  mint: '#7dd3c0',
+  mintLight: '#d4f5ed',
+  peach: '#f5a97f',
+  peachLight: '#fde8db',
+  rose: '#e89eb8',
+  roseLight: '#fce4ec',
+  text: '#2d2a3e',
+  textMuted: '#6b6880',
+  border: '#e8e6e3',
 };
 
-export default function BetweenTheLines() {
-  // State
-  const [inputType, setInputType] = useState('text'); // 'text' | 'image'
-  const [conversation, setConversation] = useState('');
-  const [imageData, setImageData] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
-  const [repairScript, setRepairScript] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('input');
-  const [expandedWiki, setExpandedWiki] = useState(null);
-  
-  const fileInputRef = useRef(null);
-
-  // ============================================
-  // IMAGE HANDLING
-  // ============================================
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Preview
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    
-    // Convert to base64 for API
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      setImageData({
-        base64,
-        mimeType: file.type
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // ============================================
-  // API CALL (Works with Gemini API)
-  // ============================================
-  const callGemini = async (prompt, imageBase64 = null, imageMimeType = null) => {
-    const messages = [];
-    
-    if (imageBase64) {
-      // Multimodal: image + text
-      messages.push({
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: imageMimeType,
-              data: imageBase64
-            }
-          },
-          { type: "text", text: prompt }
-        ]
-      });
-    } else {
-      // Text only
-      messages.push({ role: "user", content: prompt });
-    }
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4000,
-        messages
-      })
-    });
-    
-    const data = await response.json();
-    return data.content?.[0]?.text || '';
-  };
-
-  // ============================================
-  // ANALYZE
-  // ============================================
-  const analyze = async () => {
-    setLoading(true);
-    
-    const basePrompt = `You are an expert communication therapist. Analyze this conversation and identify patterns.
-
-${inputType === 'image' ? `
-STEP 1: Extract all text from this screenshot.
-- Identify message bubbles and who sent each (left vs right, colors, names)
-- Preserve order and emotional content
-` : ''}
-
-STEP 2: Analyze for communication patterns.
-
-Respond in JSON only:
-{
-  "extractedText": "the conversation text (if from image)",
-  "healthScore": 1-100,
-  "tldr": "One casual sentence summary",
-  "coreMiscommunication": "The REAL issue in plain language",
-  "patterns": [
-    {
-      "type": "criticism|contempt|defensiveness|stonewalling|pursue-withdraw",
-      "who": "Person 1 or Person 2",
-      "quote": "exact words",
-      "severity": 1-10,
-      "whyItHurts": "simple explanation"
-    }
-  ],
-  "person1Attachment": {
-    "style": "anxious|avoidant|secure|disorganized",
-    "confidence": 0-100,
-    "because": "evidence"
+// Wiki data with pastel colors
+const WIKI = {
+  "criticism": { 
+    emoji: "⚡", 
+    title: "Criticism", 
+    subtitle: "Attacking character, not behavior",
+    tip: "Start with 'I feel...' instead of 'You are...'",
+    color: colors.peach,
+    bgColor: colors.peachLight
   },
-  "person2Attachment": {
-    "style": "anxious|avoidant|secure|disorganized", 
-    "confidence": 0-100,
-    "because": "evidence"
+  "contempt": { 
+    emoji: "😤", 
+    title: "Contempt", 
+    subtitle: "Disgust or superiority",
+    tip: "Build daily appreciation habits",
+    color: colors.rose,
+    bgColor: colors.roseLight
   },
-  "frictionMoments": [
-    {
-      "quote": "the exchange",
-      "problem": "what went wrong",
-      "needed": "what they actually needed",
-      "betterWay": "healthier alternative"
-    }
-  ],
-  "oneThingToTry": "Single actionable tip"
-}`;
-
-    const textPrompt = inputType === 'text' 
-      ? `${basePrompt}\n\nConversation:\n${conversation}`
-      : basePrompt;
-
-    try {
-      const result = await callGemini(
-        textPrompt,
-        inputType === 'image' ? imageData?.base64 : null,
-        inputType === 'image' ? imageData?.mimeType : null
-      );
-      
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        setAnalysis(JSON.parse(jsonMatch[0]));
-        setActiveTab('results');
-      }
-    } catch (error) {
-      console.error('Analysis error:', error);
-    }
-    
-    setLoading(false);
-  };
-
-  // ============================================
-  // GENERATE REPAIR SCRIPT
-  // ============================================
-  const generateRepair = async () => {
-    if (!analysis) return;
-    setLoading(true);
-
-    const prompt = `Based on this analysis:
-${JSON.stringify(analysis, null, 2)}
-
-Generate a simple repair script. No therapy jargon — just real words anyone can use.
-
-JSON format:
-{
-  "before": {
-    "breathe": "Quick calming tip",
-    "remember": "Mindset reminder",
-    "when": "Best timing"
+  "defensiveness": { 
+    emoji: "🛡️", 
+    title: "Defensiveness", 
+    subtitle: "Deflecting responsibility",
+    tip: "Accept even a small part of responsibility",
+    color: colors.accent,
+    bgColor: colors.accentLight
   },
-  "script": [
-    { "step": "Open", "say": "exact words", "why": "why this works" },
-    { "step": "Own it", "say": "exact words", "why": "why this works" },
-    { "step": "Be real", "say": "exact words", "why": "why this works" },
-    { "step": "Ask them", "say": "exact words", "why": "why this works" },
-    { "step": "Together", "say": "exact words", "why": "why this works" }
-  ],
-  "ifDefensive": {
-    "theySay": "example response",
-    "youSay": "de-escalation"
+  "stonewalling": { 
+    emoji: "🧱", 
+    title: "Stonewalling", 
+    subtitle: "Withdrawing, shutting down",
+    tip: "Take a break WITH a return promise",
+    color: '#8b9dc3',
+    bgColor: '#e8edf5'
   },
-  "dontSay": ["thing 1", "thing 2"],
-  "mantra": "One sentence to remember"
-}`;
+  "pursue-withdraw": { 
+    emoji: "🔄", 
+    title: "Pursue-Withdraw", 
+    subtitle: "The chase and retreat dance",
+    tip: "Pursuer: soften. Withdrawer: come back.",
+    color: '#d4a574',
+    bgColor: '#f5ebe0'
+  },
+  "anxious": { 
+    emoji: "💭", 
+    title: "Anxious", 
+    subtitle: "The Worrier",
+    tip: "They need consistent reassurance",
+    color: colors.peach,
+    bgColor: colors.peachLight
+  },
+  "avoidant": { 
+    emoji: "🚪", 
+    title: "Avoidant", 
+    subtitle: "The Lone Wolf",
+    tip: "Give space without punishment",
+    color: '#7eb8da',
+    bgColor: '#e3f2fd'
+  },
+  "secure": { 
+    emoji: "🌱", 
+    title: "Secure", 
+    subtitle: "The Steady One",
+    tip: "The goal — can be learned!",
+    color: colors.mint,
+    bgColor: colors.mintLight
+  },
+  "disorganized": { 
+    emoji: "🌀", 
+    title: "Disorganized", 
+    subtitle: "The Push-Puller",
+    tip: "Patience + consistency + support",
+    color: colors.accent,
+    bgColor: colors.accentLight
+  },
+};
 
-    try {
-      const result = await callGemini(prompt);
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        setRepairScript(JSON.parse(jsonMatch[0]));
-        setActiveTab('repair');
-      }
-    } catch (error) {
-      console.error('Repair error:', error);
-    }
-    
-    setLoading(false);
-  };
-
-  // ============================================
-  // UI COMPONENTS
-  // ============================================
-  
-  const HealthBar = ({ score }) => (
-    <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
-      <div 
-        className="h-full rounded-full transition-all duration-700"
-        style={{
-          width: `${score}%`,
-          background: score > 70 ? '#22c55e' : score > 40 ? '#f59e0b' : '#ef4444'
-        }}
-      />
-    </div>
-  );
-
-  const WikiTooltip = ({ id }) => {
-    const data = WIKI[id] || WIKI[`attachment-${id}`];
-    if (!data) return null;
-    
-    return (
-      <div className="inline-flex items-center gap-1 px-2 py-1 bg-gray-800 rounded-lg text-sm">
-        <span>{data.emoji}</span>
-        <span className="text-gray-300">{data.title}</span>
-        <button 
-          onClick={() => setExpandedWiki(expandedWiki === id ? null : id)}
-          className="text-violet-400 hover:text-violet-300 ml-1"
-        >
-          ?
-        </button>
-        {expandedWiki === id && (
-          <div className="absolute mt-1 p-3 bg-gray-900 rounded-lg shadow-xl z-10 max-w-xs">
-            <p className="text-gray-400 text-sm">💡 {data.tip}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ============================================
-  // RENDER
-  // ============================================
-  return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-            💬
-          </div>
-          <div>
-            <h1 className="font-bold text-lg">Between the Lines</h1>
-            <p className="text-gray-500 text-sm">Communication insights without the $200/hr</p>
-          </div>
-        </div>
-      </header>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-800">
-        <div className="max-w-2xl mx-auto flex">
-          {[
-            { id: 'input', label: '1. Input' },
-            { id: 'results', label: '2. Analysis', disabled: !analysis },
-            { id: 'repair', label: '3. Repair', disabled: !repairScript },
-            { id: 'learn', label: '📚 Learn' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => !tab.disabled && setActiveTab(tab.id)}
-              disabled={tab.disabled}
-              className={`px-6 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id 
-                  ? 'text-violet-400 border-b-2 border-violet-400' 
-                  : tab.disabled 
-                  ? 'text-gray-600 cursor-not-allowed'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <main className="max-w-2xl mx-auto p-6">
-        
-        {/* INPUT TAB */}
-        {activeTab === 'input' && (
-          <div className="space-y-6">
-            {/* Input type toggle */}
-            <div className="flex gap-2 p-1 bg-gray-900 rounded-lg w-fit">
-              <button
-                onClick={() => setInputType('text')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  inputType === 'text' ? 'bg-violet-600 text-white' : 'text-gray-400'
-                }`}
-              >
-                📝 Paste Text
-              </button>
-              <button
-                onClick={() => setInputType('image')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  inputType === 'image' ? 'bg-violet-600 text-white' : 'text-gray-400'
-                }`}
-              >
-                📸 Upload Screenshot
-              </button>
-            </div>
-
-            {/* Text input */}
-            {inputType === 'text' && (
-              <div>
-                <textarea
-                  value={conversation}
-                  onChange={(e) => setConversation(e.target.value)}
-                  placeholder="Paste your conversation here...&#10;&#10;Me: Hey, did you get my message?&#10;Partner: Yeah&#10;Me: So... are we going or not?"
-                  className="w-full h-64 bg-gray-900 rounded-xl p-4 text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-                <button
-                  onClick={() => setConversation(`Me: Hey, did you get my message about dinner tomorrow?
+// Sample conversation for testing
+const SAMPLE_CONVO = `Me: Hey, did you get my message about dinner tomorrow?
 Partner: Yeah
 Me: So... are we going or not?
 Partner: I don't know, I'm tired
@@ -350,15 +109,439 @@ Me: Being like what? I just asked a simple question
 Partner: Whatever, fine, we'll go
 Me: Forget it. If you don't want to go, just say so
 Partner: I said we'll go!
-Me: Your tone says otherwise
-Partner: I don't have a tone. You're reading into things
-Me: See, this is what always happens
-Partner: What always happens?
-Me: Nothing. Forget I said anything.
-Partner: Fine.`)}
-                  className="mt-2 text-sm text-violet-400 hover:text-violet-300"
+Me: Your tone says otherwise`;
+
+export default function BetweenTheLines() {
+  const [inputType, setInputType] = useState('text');
+  const [conversation, setConversation] = useState('');
+  const [imageData, setImageData] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [repairScript, setRepairScript] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('input');
+  const [expandedWiki, setExpandedWiki] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // ============================================
+  // IMAGE HANDLING
+  // ============================================
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImagePreview(URL.createObjectURL(file));
+    
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageData({
+        base64: reader.result.split(',')[1],
+        mimeType: file.type
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ============================================
+  // GEMINI API CALL
+  // ============================================
+  const callGemini = async (prompt, systemPrompt = '') => {
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4000,
+          system: systemPrompt,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await response.json();
+      return data.content?.[0]?.text || '';
+    } catch (error) {
+      console.error('API Error:', error);
+      return null;
+    }
+  };
+
+  // ============================================
+  // ANALYZE CONVERSATION
+  // ============================================
+  const analyzeConversation = async () => {
+    if (!conversation.trim() && !imageData) return;
+    setLoading(true);
+
+    const systemPrompt = `You are a warm, insightful communication coach trained in Gottman Method and attachment theory. Analyze conversations with empathy and give practical, hopeful advice. Avoid clinical jargon — speak like a wise friend.`;
+
+    const analysisPrompt = `Analyze this conversation between two people:
+
+<conversation>
+${conversation}
+</conversation>
+
+Provide your analysis in this exact JSON format:
+{
+  "healthScore": 45,
+  "summary": "A warm, 2-sentence summary of what's happening in this conversation",
+  "coreIssue": "The real underlying issue in plain, compassionate language",
+  "patterns": [
+    {
+      "type": "pursue-withdraw",
+      "who": "Person 1",
+      "quote": "exact quote showing this",
+      "severity": 7,
+      "explanation": "Why this matters, explained kindly"
+    }
+  ],
+  "person1": {
+    "style": "anxious",
+    "confidence": 75,
+    "summary": "A gentle description of how Person 1 seems to be feeling and why"
+  },
+  "person2": {
+    "style": "avoidant", 
+    "confidence": 70,
+    "summary": "A gentle description of how Person 2 seems to be feeling and why"
+  },
+  "hopefulNote": "Something positive or hopeful about this situation",
+  "oneSmallStep": "One tiny, doable action they could try"
+}
+
+Be warm and non-judgmental. Both people are doing their best.`;
+
+    try {
+      const result = await callGemini(analysisPrompt, systemPrompt);
+      const jsonMatch = result?.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        setAnalysis(JSON.parse(jsonMatch[0]));
+        setActiveTab('analysis');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+    }
+    setLoading(false);
+  };
+
+  // ============================================
+  // GENERATE REPAIR SCRIPT
+  // ============================================
+  const generateRepairScript = async () => {
+    if (!analysis) return;
+    setLoading(true);
+
+    const systemPrompt = `You are a compassionate communication coach. Generate repair scripts that feel natural and authentic — not robotic or therapy-speak. The goal is reconnection, not "winning."`;
+
+    const repairPrompt = `Based on this analysis:
+${JSON.stringify(analysis, null, 2)}
+
+Original conversation:
+${conversation}
+
+Create a gentle repair toolkit. Make it feel human and doable.
+
+JSON format:
+{
+  "beforeTalking": {
+    "breathe": "A calming suggestion",
+    "mindset": "A helpful reframe",
+    "timing": "When might be a good time"
+  },
+  "openingLines": [
+    {
+      "say": "A gentle way to start",
+      "tone": "How to say it"
+    }
+  ],
+  "keyPhrases": [
+    {
+      "purpose": "To acknowledge their experience",
+      "say": "Exact words",
+      "why": "Why this helps"
+    },
+    {
+      "purpose": "To share your feelings",
+      "say": "Exact words", 
+      "why": "Why this helps"
+    },
+    {
+      "purpose": "To move forward together",
+      "say": "Exact words",
+      "why": "Why this helps"
+    }
+  ],
+  "avoid": ["Things that might make it worse"],
+  "ifStuck": "What to do if the conversation stalls",
+  "remember": "A comforting reminder"
+}`;
+
+    try {
+      const result = await callGemini(repairPrompt, systemPrompt);
+      const jsonMatch = result?.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        setRepairScript(JSON.parse(jsonMatch[0]));
+        setActiveTab('repair');
+      }
+    } catch (error) {
+      console.error('Repair error:', error);
+    }
+    setLoading(false);
+  };
+
+  // ============================================
+  // UI COMPONENTS
+  // ============================================
+  
+  const HealthMeter = ({ score }) => {
+    const getColor = () => {
+      if (score >= 70) return colors.mint;
+      if (score >= 40) return colors.peach;
+      return colors.rose;
+    };
+    
+    return (
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span style={{ color: colors.textMuted }}>Communication Health</span>
+          <span style={{ color: getColor(), fontWeight: 600 }}>{score}/100</span>
+        </div>
+        <div 
+          className="h-2 rounded-full overflow-hidden"
+          style={{ background: colors.border }}
+        >
+          <div 
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${score}%`, background: getColor() }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const PatternCard = ({ pattern }) => {
+    const wiki = WIKI[pattern.type] || {};
+    return (
+      <div 
+        className="p-4 rounded-2xl"
+        style={{ background: wiki.bgColor || colors.accentLight }}
+      >
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">{wiki.emoji}</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-medium" style={{ color: colors.text }}>
+                {wiki.title}
+              </span>
+              <span 
+                className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'white', color: colors.textMuted }}
+              >
+                {pattern.who}
+              </span>
+            </div>
+            <p 
+              className="text-sm italic mb-2"
+              style={{ color: colors.textMuted }}
+            >
+              "{pattern.quote}"
+            </p>
+            <p className="text-sm" style={{ color: colors.text }}>
+              {pattern.explanation}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const AttachmentCard = ({ person, label, data }) => {
+    const wiki = WIKI[data?.style] || {};
+    return (
+      <div 
+        className="p-4 rounded-2xl"
+        style={{ background: wiki.bgColor || '#f5f5f5' }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">{wiki.emoji}</span>
+          <div>
+            <p className="text-xs" style={{ color: colors.textMuted }}>{label}</p>
+            <p className="font-medium" style={{ color: colors.text }}>
+              {wiki.title} Attachment
+            </p>
+          </div>
+        </div>
+        <p className="text-sm" style={{ color: colors.textMuted }}>
+          {data?.summary}
+        </p>
+      </div>
+    );
+  };
+
+  const WikiCard = ({ id }) => {
+    const data = WIKI[id];
+    if (!data) return null;
+    const isExpanded = expandedWiki === id;
+    
+    return (
+      <button
+        onClick={() => setExpandedWiki(isExpanded ? null : id)}
+        className="w-full text-left p-4 rounded-2xl transition-all duration-200"
+        style={{ 
+          background: isExpanded ? data.bgColor : 'white',
+          border: `1px solid ${colors.border}`,
+          boxShadow: isExpanded ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{data.emoji}</span>
+          <div className="flex-1">
+            <p className="font-medium" style={{ color: colors.text }}>{data.title}</p>
+            <p className="text-sm" style={{ color: colors.textMuted }}>{data.subtitle}</p>
+          </div>
+          <span style={{ color: colors.textMuted }}>{isExpanded ? '−' : '+'}</span>
+        </div>
+        {isExpanded && (
+          <div 
+            className="mt-3 pt-3 text-sm"
+            style={{ borderTop: `1px solid ${colors.border}`, color: colors.text }}
+          >
+            💡 {data.tip}
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  // ============================================
+  // MAIN RENDER
+  // ============================================
+  return (
+    <div className="min-h-screen" style={{ background: colors.bg, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      {/* Header */}
+      <header 
+        className="sticky top-0 z-50 backdrop-blur-md"
+        style={{ background: `${colors.bg}ee`, borderBottom: `1px solid ${colors.border}` }}
+      >
+        <div className="max-w-xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl"
+              style={{ background: `linear-gradient(135deg, ${colors.accent}, ${colors.mint})` }}
+            >
+              💬
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg" style={{ color: colors.text }}>
+                Between the Lines
+              </h1>
+              <p className="text-sm" style={{ color: colors.textMuted }}>
+                Understand your conversations better
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Tab Navigation */}
+      <nav style={{ borderBottom: `1px solid ${colors.border}` }}>
+        <div className="max-w-xl mx-auto px-4">
+          <div className="flex gap-1">
+            {[
+              { id: 'input', label: 'Start', icon: '✏️' },
+              { id: 'analysis', label: 'Insights', icon: '💡', disabled: !analysis },
+              { id: 'repair', label: 'Repair', icon: '💚', disabled: !repairScript },
+              { id: 'learn', label: 'Learn', icon: '📚' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                disabled={tab.disabled}
+                className="px-4 py-3 text-sm font-medium transition-all relative"
+                style={{ 
+                  color: activeTab === tab.id ? colors.accent : tab.disabled ? colors.border : colors.textMuted,
+                  opacity: tab.disabled ? 0.5 : 1
+                }}
+              >
+                <span className="mr-1">{tab.icon}</span>
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                    style={{ background: colors.accent }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* Content */}
+      <main className="max-w-xl mx-auto px-4 py-6">
+        
+        {/* INPUT TAB */}
+        {activeTab === 'input' && (
+          <div className="space-y-6">
+            {/* Welcome message */}
+            <div 
+              className="p-4 rounded-2xl text-center"
+              style={{ background: colors.accentLight }}
+            >
+              <p style={{ color: colors.text }}>
+                Paste a conversation and I'll help you understand what's happening beneath the surface 🌱
+              </p>
+            </div>
+
+            {/* Input type toggle */}
+            <div 
+              className="flex gap-1 p-1 rounded-xl"
+              style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+            >
+              {[
+                { id: 'text', label: '✏️ Paste Text' },
+                { id: 'image', label: '📸 Screenshot' }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setInputType(opt.id)}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
+                  style={{ 
+                    background: inputType === opt.id ? colors.accent : 'transparent',
+                    color: inputType === opt.id ? 'white' : colors.textMuted
+                  }}
                 >
-                  Load example conversation
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Text input */}
+            {inputType === 'text' && (
+              <div className="space-y-3">
+                <textarea
+                  value={conversation}
+                  onChange={(e) => setConversation(e.target.value)}
+                  placeholder="Paste your conversation here...
+
+Example:
+Me: Hey, did you get my message?
+Partner: Yeah
+Me: So what do you think?"
+                  className="w-full h-56 p-4 rounded-2xl resize-none text-sm transition-all focus:outline-none"
+                  style={{ 
+                    background: colors.card, 
+                    border: `2px solid ${colors.border}`,
+                    color: colors.text
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = colors.accent}
+                  onBlur={(e) => e.target.style.borderColor = colors.border}
+                />
+                <button
+                  onClick={() => setConversation(SAMPLE_CONVO)}
+                  className="text-sm transition-colors"
+                  style={{ color: colors.accent }}
+                >
+                  ↳ Load example conversation
                 </button>
               </div>
             )}
@@ -378,15 +561,14 @@ Partner: Fine.`)}
                   <div className="relative">
                     <img 
                       src={imagePreview} 
-                      alt="Conversation screenshot"
-                      className="w-full rounded-xl border border-gray-700"
+                      alt="Screenshot"
+                      className="w-full rounded-2xl"
+                      style={{ border: `2px solid ${colors.border}` }}
                     />
                     <button
-                      onClick={() => {
-                        setImagePreview(null);
-                        setImageData(null);
-                      }}
-                      className="absolute top-2 right-2 w-8 h-8 bg-gray-900/80 rounded-full flex items-center justify-center hover:bg-gray-800"
+                      onClick={() => { setImagePreview(null); setImageData(null); }}
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm"
+                      style={{ background: colors.card, color: colors.textMuted }}
                     >
                       ✕
                     </button>
@@ -394,11 +576,17 @@ Partner: Fine.`)}
                 ) : (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-64 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-violet-500 transition-colors"
+                    className="w-full h-56 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all"
+                    style={{ 
+                      border: `2px dashed ${colors.border}`,
+                      background: colors.card
+                    }}
                   >
                     <span className="text-4xl">📸</span>
-                    <span className="text-gray-400">Click to upload screenshot</span>
-                    <span className="text-gray-600 text-sm">WeChat, iMessage, WhatsApp, etc.</span>
+                    <span style={{ color: colors.textMuted }}>Tap to upload a screenshot</span>
+                    <span className="text-sm" style={{ color: colors.border }}>
+                      WeChat, iMessage, WhatsApp...
+                    </span>
                   </button>
                 )}
               </div>
@@ -406,137 +594,217 @@ Partner: Fine.`)}
 
             {/* Analyze button */}
             <button
-              onClick={analyze}
+              onClick={analyzeConversation}
               disabled={loading || (inputType === 'text' ? !conversation.trim() : !imageData)}
-              className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 rounded-2xl font-medium text-white transition-all disabled:opacity-50"
+              style={{ 
+                background: `linear-gradient(135deg, ${colors.accent}, ${colors.mint})`,
+                boxShadow: '0 4px 14px rgba(159, 143, 239, 0.3)'
+              }}
             >
-              {loading ? 'Analyzing...' : 'Analyze Conversation'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin">⏳</span> Analyzing...
+                </span>
+              ) : (
+                'Analyze Conversation ✨'
+              )}
             </button>
           </div>
         )}
 
-        {/* RESULTS TAB */}
-        {activeTab === 'results' && analysis && (
-          <div className="space-y-6">
+        {/* ANALYSIS TAB */}
+        {activeTab === 'analysis' && analysis && (
+          <div className="space-y-5">
             {/* Health Score */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-gray-400">Communication Health</span>
-                <span className="text-2xl font-bold">{analysis.healthScore}/100</span>
-              </div>
-              <HealthBar score={analysis.healthScore} />
-              <p className="mt-4 text-gray-300">{analysis.tldr}</p>
+            <div 
+              className="p-5 rounded-2xl"
+              style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+            >
+              <HealthMeter score={analysis.healthScore} />
+              <p className="mt-4 text-sm" style={{ color: colors.text }}>
+                {analysis.summary}
+              </p>
             </div>
 
             {/* Core Issue */}
-            <div className="bg-gradient-to-r from-violet-900/30 to-fuchsia-900/30 rounded-2xl p-6 border border-violet-500/30">
-              <h3 className="text-sm text-violet-400 mb-2">🎯 The Real Issue</h3>
-              <p className="text-lg">{analysis.coreMiscommunication}</p>
+            <div 
+              className="p-5 rounded-2xl"
+              style={{ background: colors.mintLight }}
+            >
+              <p className="text-sm font-medium mb-2" style={{ color: colors.mint }}>
+                🎯 What's really going on
+              </p>
+              <p style={{ color: colors.text }}>{analysis.coreIssue}</p>
             </div>
 
             {/* Patterns */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h3 className="font-semibold mb-4">Patterns Detected</h3>
-              <div className="space-y-4">
-                {analysis.patterns?.map((pattern, i) => (
-                  <div key={i} className="border-l-2 border-amber-500 pl-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <WikiTooltip id={pattern.type} />
-                      <span className="text-gray-500 text-sm">• {pattern.who}</span>
-                    </div>
-                    <p className="text-gray-400 italic">"{pattern.quote}"</p>
-                    <p className="text-gray-500 text-sm mt-1">{pattern.whyItHurts}</p>
-                  </div>
+            {analysis.patterns?.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-medium" style={{ color: colors.text }}>
+                  Patterns I noticed
+                </h3>
+                {analysis.patterns.map((pattern, i) => (
+                  <PatternCard key={i} pattern={pattern} />
                 ))}
               </div>
-            </div>
+            )}
 
             {/* Attachment Styles */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h3 className="font-semibold mb-4">Attachment Styles</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-800 rounded-xl">
-                  <p className="text-gray-500 text-sm mb-1">Person 1 (You)</p>
-                  <WikiTooltip id={analysis.person1Attachment?.style} />
-                  <p className="text-gray-500 text-sm mt-2">{analysis.person1Attachment?.because}</p>
-                </div>
-                <div className="p-4 bg-gray-800 rounded-xl">
-                  <p className="text-gray-500 text-sm mb-1">Person 2</p>
-                  <WikiTooltip id={analysis.person2Attachment?.style} />
-                  <p className="text-gray-500 text-sm mt-2">{analysis.person2Attachment?.because}</p>
-                </div>
+            <div className="space-y-3">
+              <h3 className="font-medium" style={{ color: colors.text }}>
+                Communication styles
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <AttachmentCard label="You" data={analysis.person1} />
+                <AttachmentCard label="Them" data={analysis.person2} />
               </div>
             </div>
 
-            {/* Quick Win */}
-            <div className="bg-emerald-900/30 rounded-2xl p-6 border border-emerald-500/30">
-              <h3 className="text-sm text-emerald-400 mb-2">💡 One Thing to Try</h3>
-              <p className="text-lg">{analysis.oneThingToTry}</p>
+            {/* Hopeful Note */}
+            {analysis.hopefulNote && (
+              <div 
+                className="p-5 rounded-2xl text-center"
+                style={{ background: colors.accentLight }}
+              >
+                <p className="text-sm mb-1" style={{ color: colors.accent }}>💜</p>
+                <p style={{ color: colors.text }}>{analysis.hopefulNote}</p>
+              </div>
+            )}
+
+            {/* One Small Step */}
+            <div 
+              className="p-5 rounded-2xl"
+              style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+            >
+              <p className="text-sm font-medium mb-2" style={{ color: colors.mint }}>
+                🌱 One small step
+              </p>
+              <p style={{ color: colors.text }}>{analysis.oneSmallStep}</p>
             </div>
 
             {/* CTA */}
             <button
-              onClick={generateRepair}
+              onClick={generateRepairScript}
               disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full py-4 rounded-2xl font-medium text-white transition-all disabled:opacity-50"
+              style={{ 
+                background: `linear-gradient(135deg, ${colors.mint}, ${colors.accent})`,
+                boxShadow: '0 4px 14px rgba(125, 211, 192, 0.3)'
+              }}
             >
-              {loading ? 'Generating...' : 'Get Repair Script →'}
+              {loading ? 'Creating...' : 'Get Repair Script 💚'}
             </button>
           </div>
         )}
 
         {/* REPAIR TAB */}
         {activeTab === 'repair' && repairScript && (
-          <div className="space-y-6">
-            {/* Before */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h3 className="font-semibold mb-4">Before You Talk</h3>
-              <div className="space-y-3">
-                <p><span className="text-violet-400">🫁 Breathe:</span> {repairScript.before?.breathe}</p>
-                <p><span className="text-violet-400">🧠 Remember:</span> {repairScript.before?.remember}</p>
-                <p><span className="text-violet-400">⏰ When:</span> {repairScript.before?.when}</p>
+          <div className="space-y-5">
+            {/* Before talking */}
+            <div 
+              className="p-5 rounded-2xl"
+              style={{ background: colors.accentLight }}
+            >
+              <h3 className="font-medium mb-4" style={{ color: colors.text }}>
+                Before you talk
+              </h3>
+              <div className="space-y-3 text-sm">
+                <p><span style={{ color: colors.accent }}>🫁 Breathe:</span> {repairScript.beforeTalking?.breathe}</p>
+                <p><span style={{ color: colors.accent }}>💭 Remember:</span> {repairScript.beforeTalking?.mindset}</p>
+                <p><span style={{ color: colors.accent }}>⏰ Timing:</span> {repairScript.beforeTalking?.timing}</p>
               </div>
             </div>
 
-            {/* Script */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h3 className="font-semibold mb-4">Your Script</h3>
+            {/* Opening lines */}
+            {repairScript.openingLines?.length > 0 && (
+              <div 
+                className="p-5 rounded-2xl"
+                style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+              >
+                <h3 className="font-medium mb-3" style={{ color: colors.text }}>
+                  Ways to start
+                </h3>
+                {repairScript.openingLines.map((line, i) => (
+                  <div key={i} className="p-3 rounded-xl mb-2" style={{ background: colors.bg }}>
+                    <p style={{ color: colors.text }}>"{line.say}"</p>
+                    <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                      {line.tone}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Key phrases */}
+            <div 
+              className="p-5 rounded-2xl"
+              style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+            >
+              <h3 className="font-medium mb-4" style={{ color: colors.text }}>
+                Things you could say
+              </h3>
               <div className="space-y-4">
-                {repairScript.script?.map((item, i) => (
-                  <div key={i} className="border-l-2 border-violet-500 pl-4">
-                    <p className="text-sm text-violet-400 mb-1">{item.step}</p>
-                    <p className="text-lg text-gray-200">"{item.say}"</p>
-                    <p className="text-gray-500 text-sm mt-1">↳ {item.why}</p>
+                {repairScript.keyPhrases?.map((phrase, i) => (
+                  <div key={i}>
+                    <p className="text-xs font-medium mb-1" style={{ color: colors.accent }}>
+                      {phrase.purpose}
+                    </p>
+                    <p 
+                      className="p-3 rounded-xl text-sm"
+                      style={{ background: colors.mintLight, color: colors.text }}
+                    >
+                      "{phrase.say}"
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                      ↳ {phrase.why}
+                    </p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* If Defensive */}
-            {repairScript.ifDefensive && (
-              <div className="bg-amber-900/20 rounded-2xl p-6 border border-amber-500/30">
-                <h3 className="text-amber-400 font-semibold mb-3">If They Get Defensive</h3>
-                <p className="text-gray-400 mb-2">They might say: "{repairScript.ifDefensive.theySay}"</p>
-                <p className="text-gray-200">You say: "{repairScript.ifDefensive.youSay}"</p>
+            {/* Avoid */}
+            {repairScript.avoid?.length > 0 && (
+              <div 
+                className="p-5 rounded-2xl"
+                style={{ background: colors.peachLight }}
+              >
+                <h3 className="font-medium mb-3" style={{ color: colors.peach }}>
+                  ⚠️ Try to avoid
+                </h3>
+                <ul className="space-y-2">
+                  {repairScript.avoid.map((item, i) => (
+                    <li key={i} className="text-sm flex gap-2" style={{ color: colors.text }}>
+                      <span>•</span> {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
-            {/* Don't Say */}
-            <div className="bg-red-900/20 rounded-2xl p-6 border border-red-500/30">
-              <h3 className="text-red-400 font-semibold mb-3">⚠️ Avoid Saying</h3>
-              <ul className="space-y-2">
-                {repairScript.dontSay?.map((item, i) => (
-                  <li key={i} className="text-gray-400 flex items-start gap-2">
-                    <span className="text-red-400">✗</span> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* If stuck */}
+            {repairScript.ifStuck && (
+              <div 
+                className="p-5 rounded-2xl"
+                style={{ background: colors.card, border: `1px solid ${colors.border}` }}
+              >
+                <p className="text-sm font-medium mb-2" style={{ color: colors.textMuted }}>
+                  If the conversation stalls...
+                </p>
+                <p style={{ color: colors.text }}>{repairScript.ifStuck}</p>
+              </div>
+            )}
 
-            {/* Mantra */}
-            <div className="bg-gradient-to-r from-violet-900/30 to-fuchsia-900/30 rounded-2xl p-6 text-center">
-              <p className="text-gray-500 text-sm mb-2">Remember</p>
-              <p className="text-xl font-medium">{repairScript.mantra}</p>
+            {/* Remember */}
+            <div 
+              className="p-5 rounded-2xl text-center"
+              style={{ background: `linear-gradient(135deg, ${colors.accentLight}, ${colors.mintLight})` }}
+            >
+              <p className="text-sm mb-1" style={{ color: colors.accent }}>💜 Remember</p>
+              <p className="font-medium" style={{ color: colors.text }}>
+                {repairScript.remember}
+              </p>
             </div>
           </div>
         )}
@@ -544,81 +812,46 @@ Partner: Fine.`)}
         {/* LEARN TAB */}
         {activeTab === 'learn' && (
           <div className="space-y-6">
-            <p className="text-gray-400">Tap any card to learn more about the science behind healthy communication.</p>
-            
+            <p style={{ color: colors.textMuted }}>
+              Tap any card to learn more about communication patterns.
+            </p>
+
             {/* Four Horsemen */}
-            <div>
-              <h3 className="text-sm text-gray-500 uppercase tracking-wide mb-3">The Four Horsemen (Gottman)</h3>
-              <div className="space-y-2">
-                {['criticism', 'contempt', 'defensiveness', 'stonewalling'].map(id => (
-                  <button
-                    key={id}
-                    onClick={() => setExpandedWiki(expandedWiki === id ? null : id)}
-                    className="w-full text-left p-4 bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{WIKI[id].emoji}</span>
-                      <div>
-                        <p className="font-medium">{WIKI[id].title}</p>
-                        {expandedWiki === id && (
-                          <p className="text-gray-400 text-sm mt-1">💡 {WIKI[id].tip}</p>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium" style={{ color: colors.textMuted }}>
+                THE FOUR HORSEMEN
+              </h3>
+              {['criticism', 'contempt', 'defensiveness', 'stonewalling'].map(id => (
+                <WikiCard key={id} id={id} />
+              ))}
             </div>
 
             {/* Patterns */}
-            <div>
-              <h3 className="text-sm text-gray-500 uppercase tracking-wide mb-3">Common Patterns</h3>
-              <button
-                onClick={() => setExpandedWiki(expandedWiki === 'pursue-withdraw' ? null : 'pursue-withdraw')}
-                className="w-full text-left p-4 bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{WIKI['pursue-withdraw'].emoji}</span>
-                  <div>
-                    <p className="font-medium">{WIKI['pursue-withdraw'].title}</p>
-                    {expandedWiki === 'pursue-withdraw' && (
-                      <p className="text-gray-400 text-sm mt-1">💡 {WIKI['pursue-withdraw'].tip}</p>
-                    )}
-                  </div>
-                </div>
-              </button>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium" style={{ color: colors.textMuted }}>
+                COMMON PATTERNS
+              </h3>
+              <WikiCard id="pursue-withdraw" />
             </div>
 
             {/* Attachment */}
-            <div>
-              <h3 className="text-sm text-gray-500 uppercase tracking-wide mb-3">Attachment Styles</h3>
-              <div className="space-y-2">
-                {['attachment-anxious', 'attachment-avoidant', 'attachment-secure', 'attachment-disorganized'].map(id => (
-                  <button
-                    key={id}
-                    onClick={() => setExpandedWiki(expandedWiki === id ? null : id)}
-                    className="w-full text-left p-4 bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{WIKI[id].emoji}</span>
-                      <div>
-                        <p className="font-medium">{WIKI[id].title}</p>
-                        {expandedWiki === id && (
-                          <p className="text-gray-400 text-sm mt-1">💡 {WIKI[id].tip}</p>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium" style={{ color: colors.textMuted }}>
+                ATTACHMENT STYLES
+              </h3>
+              {['anxious', 'avoidant', 'secure', 'disorganized'].map(id => (
+                <WikiCard key={id} id={id} />
+              ))}
             </div>
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 mt-12 py-6 text-center text-gray-600 text-sm">
-        Built with Gemini 3 Pro • Based on Gottman Method & Attachment Theory
+      <footer className="py-8 text-center">
+        <p className="text-sm" style={{ color: colors.border }}>
+          Built with Gemini 3 Pro • Based on Gottman Method
+        </p>
       </footer>
     </div>
   );
